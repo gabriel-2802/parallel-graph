@@ -26,7 +26,8 @@ typedef struct os_threadpool {
 	 */
 	os_list_node_t head;
 	pthread_mutex_t task_lock;
-	pthread_cond_t task_cond;
+	pthread_mutex_t deq_lock;
+	pthread_cond_t deq_cond;
 	int end;
 
 	/* TODO: Define threapool / queue synchronization data. */

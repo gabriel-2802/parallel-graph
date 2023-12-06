@@ -41,8 +41,9 @@ void enqueue_task(os_threadpool_t *tp, os_task_t *t)
 	// we lock the task lock and add the task to the queue
 	pthread_mutex_lock(&tp->task_lock);
 	list_add_tail(&tp->head, &t->list);
-	pthread_cond_signal(&tp->task_cond);
 	pthread_mutex_unlock(&tp->task_lock);
+	// we signal the threads that a new task has been added
+	pthread_cond_signal(&tp->deq_cond);
 }
 
 /*
@@ -65,16 +66,16 @@ os_task_t *dequeue_task(os_threadpool_t *tp)
 {
 	os_task_t *t = NULL;
 
-	pthread_mutex_lock(&tp->task_lock);
+	pthread_mutex_lock(&tp->deq_lock);
 	//we wait for a task to be added to the queue
 	while (queue_is_empty(tp) && !tp->end)
-		pthread_cond_wait(&tp->task_cond, &tp->task_lock);
+		pthread_cond_wait(&tp->deq_cond, &tp->deq_lock);
 
 	if (!queue_is_empty(tp)) {
 		t = list_entry(tp->head.next, os_task_t, list);
 		list_del(tp->head.next);
 	}
-	pthread_mutex_unlock(&tp->task_lock);
+	pthread_mutex_unlock(&tp->deq_lock);
 	return t;
 }
 
@@ -104,7 +105,7 @@ void wait_for_completion(os_threadpool_t *tp)
 	/* TODO: Wait for all worker threads. Use synchronization. */
 	tp->end = 1;
 	// we signal all threads that the work is done and they can exit
-	pthread_cond_broadcast(&tp->task_cond);
+	pthread_cond_broadcast(&tp->deq_cond);
 
 	/* Join all worker threads. */
 	for (unsigned int i = 0; i < tp->num_threads; i++)
@@ -125,7 +126,8 @@ os_threadpool_t *create_threadpool(unsigned int num_threads)
 	/* TODO: Initialize synchronization data. */
 	tp->end = 0;
 	pthread_mutex_init(&tp->task_lock, NULL);
-	pthread_cond_init(&tp->task_cond, NULL);
+	pthread_mutex_init(&tp->deq_lock, NULL);
+	pthread_cond_init(&tp->deq_cond, NULL);
 
 	tp->num_threads = num_threads;
 	tp->threads = malloc(num_threads * sizeof(*tp->threads));
@@ -145,7 +147,8 @@ void destroy_threadpool(os_threadpool_t *tp)
 
 	/* TODO: Cleanup synchronization data. */
 	pthread_mutex_destroy(&tp->task_lock);
-	pthread_cond_destroy(&tp->task_cond);
+	pthread_mutex_destroy(&tp->deq_lock);
+	pthread_cond_destroy(&tp->deq_cond);
 
 	list_for_each_safe(n, p, &tp->head) {
 		list_del(n);
