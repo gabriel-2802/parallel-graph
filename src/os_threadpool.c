@@ -102,7 +102,7 @@ static void *thread_loop_function(void *arg)
 /* Wait completion of all threads. This is to be called by the main thread. */
 void wait_for_completion(os_threadpool_t *tp)
 {
-	/* TODO: Wait for all worker threads. Use synchronization. */
+	/* Wait for all worker threads. Use synchronization. */
 	tp->end = 1;
 	// we signal all threads that the work is done and they can exit
 	pthread_cond_broadcast(&tp->deq_cond);
@@ -145,7 +145,7 @@ void destroy_threadpool(os_threadpool_t *tp)
 {
 	os_list_node_t *n, *p;
 
-	/* TODO: Cleanup synchronization data. */
+	/* Cleanup synchronization data. */
 	pthread_mutex_destroy(&tp->task_lock);
 	pthread_mutex_destroy(&tp->deq_lock);
 	pthread_cond_destroy(&tp->deq_cond);
